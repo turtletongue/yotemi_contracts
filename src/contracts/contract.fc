@@ -1,0 +1,63 @@
+const INTERVIEW_STATUS_GET_ERROR = 0;
+const INTERVIEW_STATUS_CREATED = 1;
+const INTERVIEW_STATUS_PAID = 2;
+const INTERVIEW_STATUS_CANCELED = 3;
+
+const OPERATION_CREATE = 0;
+
+(cell, cell) load_data() inline {
+  var data_slice = get_data().begin_parse();
+
+  return (data_slice~load_dict(), data_slice~load_dict());
+}
+
+() save_data(cell interviews, cell balances) impure inline {
+  set_data(begin_cell() 
+    .store_dict(interviews)
+    .store_dict(balances)
+    .end_cell());
+}
+
+(int, int) load_interview(int id) inline {
+  var (interviews, _) = load_data();
+
+  var (interview, found?) = interviews.udict_get?(64, id);
+
+  ifnot (found?) {
+    return (0, INTERVIEW_STATUS_GET_ERROR);
+  }
+
+  return (interview~load_uint(64), interview~load_uint(2));
+}
+
+() save_interview(int id, int price, int status) impure inline {
+  var (interviews, balances) = load_data(); 
+
+  interviews~udict_set(64, id, begin_cell()
+    .store_uint(price, 64)
+    .store_uint(status, 2)
+    .end_cell()
+    .begin_parse()
+  );
+
+  save_data(interviews, balances);
+}
+
+() recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
+  if (in_msg_body.slice_empty?()) {
+    return ();
+  }
+
+  var op = in_msg_body~load_uint(32);
+
+  if (op == OPERATION_CREATE) {
+    var id = in_msg_body~load_uint(64);
+    var price = in_msg_body~load_uint(64);
+
+    save_interview(id, price, INTERVIEW_STATUS_CREATED);
+  }
+}
+
+(int, int) interview(int id) method_id {
+  return load_interview(id);
+}
