@@ -9,11 +9,11 @@ import {
   TupleBuilder,
 } from "ton-core";
 
-type Interview = { id: bigint; price: bigint; status: number };
+type Interview = { id: bigint; price: bigint; status: 'error' | 'created' | 'paid' | 'canceled' };
 
 export default class InterviewsContract implements Contract {
   static readonly operations = {
-    create: 0,
+    create: 1,
   };
 
   static createForDeploy(code: Cell): InterviewsContract {
@@ -48,7 +48,12 @@ export default class InterviewsContract implements Contract {
     return {
       id,
       price: stack.readBigNumber(),
-      status: stack.readNumber(),
+      status: ({
+        0: 'error',
+        1: 'created',
+        2: 'paid',
+        3: 'canceled'
+      } as const)[stack.readNumber()],
     };
   }
 
@@ -62,11 +67,10 @@ export default class InterviewsContract implements Contract {
       .storeUint(InterviewsContract.operations.create, 32)
       .storeUint(id, 64)
       .storeUint(price, 64)
-      .storeUint(0, 64) // query id
       .endCell();
 
     await provider.internal(via, {
-      value: "0.002",
+      value: "0.01",
       body: messageBody,
     });
   }

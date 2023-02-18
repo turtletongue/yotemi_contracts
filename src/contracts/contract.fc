@@ -3,12 +3,20 @@ const INTERVIEW_STATUS_CREATED = 1;
 const INTERVIEW_STATUS_PAID = 2;
 const INTERVIEW_STATUS_CANCELED = 3;
 
-const OPERATION_CREATE = 0;
+const OPERATION_CREATE = 1;
 
 (cell, cell) load_data() inline {
   var data_slice = get_data().begin_parse();
 
-  return (data_slice~load_dict(), data_slice~load_dict());
+  var interviews = new_dict();
+  var balances = new_dict();
+
+  ifnot (slice_empty?(data_slice)) {
+    interviews = data_slice~load_dict();
+    balances = data_slice~load_dict();
+  }
+
+  return (interviews, balances);
 }
 
 () save_data(cell interviews, cell balances) impure inline {

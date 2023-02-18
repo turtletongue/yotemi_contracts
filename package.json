@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "compile": "npx func-js ./src/contracts/stdlib.fc ./src/contracts/contract.fc --boc ./compiled/contract.cell",
-    "deploy": "npx ts-node ./contracts/deploy.ts"
+    "deploy": "npx ts-node ./src/deploy.ts"
   },
   "keywords": [],
   "author": "",
