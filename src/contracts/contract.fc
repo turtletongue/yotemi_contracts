@@ -4,51 +4,79 @@ const INTERVIEW_STATUS_PAID = 2;
 const INTERVIEW_STATUS_CANCELED = 3;
 
 const OPERATION_CREATE = 1;
+const OPERATION_BUY = 2;
 
-(cell, cell) load_data() inline {
+const INTERVIEW_ALREADY_CREATED = 0;
+const INVALID_INTERVIEW_STATUS = 1;
+const INSUFFICIENT_FUNDS = 2;
+
+(cell) load_data() inline {
   var data_slice = get_data().begin_parse();
 
   var interviews = new_dict();
-  var balances = new_dict();
 
   ifnot (slice_empty?(data_slice)) {
     interviews = data_slice~load_dict();
-    balances = data_slice~load_dict();
   }
 
-  return (interviews, balances);
+  return (interviews);
 }
 
-() save_data(cell interviews, cell balances) impure inline {
+() save_data(cell interviews) impure inline {
   set_data(begin_cell() 
     .store_dict(interviews)
-    .store_dict(balances)
     .end_cell());
 }
 
-(int, int) load_interview(int id) inline {
-  var (interviews, _) = load_data();
+(int, slice, slice, int) load_interview(int id) inline {
+  var (interviews) = load_data();
 
   var (interview, found?) = interviews.udict_get?(64, id);
 
   ifnot (found?) {
-    return (0, INTERVIEW_STATUS_GET_ERROR);
+    return (0, my_address(), my_address(), INTERVIEW_STATUS_GET_ERROR);
   }
 
-  return (interview~load_uint(64), interview~load_uint(2));
+  return (interview~load_uint(64), interview~load_msg_addr(), interview~load_msg_addr(), interview~load_uint(2));
 }
 
-() save_interview(int id, int price, int status) impure inline {
-  var (interviews, balances) = load_data(); 
+() save_interview(int id, int price, slice creator_address, slice payer_address, int status) impure inline {
+  var (interviews) = load_data();
 
   interviews~udict_set(64, id, begin_cell()
     .store_uint(price, 64)
+    .store_slice(creator_address)
+    .store_slice(payer_address)
     .store_uint(status, 2)
     .end_cell()
     .begin_parse()
   );
 
-  save_data(interviews, balances);
+  save_data(interviews);
+}
+
+() add(int msg_value, slice cs, slice in_msg_body) impure inline {
+  var id = in_msg_body~load_uint(64);
+
+  var (_, _, _, status) = load_interview(id);
+  throw_unless(INTERVIEW_ALREADY_CREATED, status == INTERVIEW_STATUS_GET_ERROR);
+
+  var price = in_msg_body~load_uint(64);
+  var creator_address = cs~load_msg_addr();
+
+  save_interview(id, price, creator_address, creator_address, INTERVIEW_STATUS_CREATED);
+}
+
+() buy(int msg_value, slice cs, slice in_msg_body) impure inline {
+  var interview_id = in_msg_body~load_uint(64);
+  var sender = cs~load_msg_addr();
+
+  var (price, creator_address, _, status) = load_interview(interview_id);
+
+  throw_unless(INVALID_INTERVIEW_STATUS, status == INTERVIEW_STATUS_CREATED);
+  throw_unless(INSUFFICIENT_FUNDS, msg_value >= price);
+
+  save_interview(interview_id, price, creator_address, sender, INTERVIEW_STATUS_PAID);
 }
 
 () recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
@@ -56,16 +84,24 @@ const OPERATION_CREATE = 1;
     return ();
   }
 
+  var cs = in_msg_full.begin_parse();
+  var flags = cs~load_uint(4);
+
   var op = in_msg_body~load_uint(32);
 
   if (op == OPERATION_CREATE) {
-    var id = in_msg_body~load_uint(64);
-    var price = in_msg_body~load_uint(64);
+    add(msg_value, cs, in_msg_body);
+  }
 
-    save_interview(id, price, INTERVIEW_STATUS_CREATED);
+  if (op == OPERATION_BUY) {
+    if (flags & 1) { ;; ignore all bounced messages
+      return ();
+    }
+
+    buy(msg_value, cs, in_msg_body);
   }
 }
 
-(int, int) interview(int id) method_id {
+(int, slice, slice, int) interview(int id) method_id {
   return load_interview(id);
 }

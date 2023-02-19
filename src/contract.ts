@@ -9,11 +9,18 @@ import {
   TupleBuilder,
 } from "ton-core";
 
-type Interview = { id: bigint; price: bigint; status: 'error' | 'created' | 'paid' | 'canceled' };
+type Interview = {
+  id: bigint;
+  price: bigint;
+  creatorAddress: string;
+  payerAddress: string;
+  status: 'error' | 'created' | 'paid' | 'canceled'
+};
 
 export default class InterviewsContract implements Contract {
   static readonly operations = {
     create: 1,
+    buy: 2,
   };
 
   static createForDeploy(code: Cell): InterviewsContract {
@@ -48,6 +55,8 @@ export default class InterviewsContract implements Contract {
     return {
       id,
       price: stack.readBigNumber(),
+      creatorAddress: stack.readAddress().toString(),
+      payerAddress: stack.readAddress().toString(),
       status: ({
         0: 'error',
         1: 'created',
@@ -73,5 +82,18 @@ export default class InterviewsContract implements Contract {
       value: "0.01",
       body: messageBody,
     });
+  }
+
+  async sendInterviewPurchase(provider: ContractProvider, via: Sender, id: bigint): Promise<void> {
+    const messageBody = beginCell()
+      .storeUint(InterviewsContract.operations.buy, 32)
+      .storeUint(id, 64)
+      .endCell();
+
+    await provider.internal(via, {
+      value: '0.005',
+      body: messageBody,
+      bounce: false,
+    })
   }
 }

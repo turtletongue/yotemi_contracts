@@ -32,12 +32,12 @@ dotenv.config();
   const seqno = await walletContract.getSeqno();
 
   const contractAddress = Address.parse(
-    "EQA-46kUKZ_TvOSo3jYzfyp75VcNZ9ViYsi37uidSeqR9XvU"
+    "EQDKACOvPmDCTF4Mgf7Tik8vAgjf6PUutCbMUAR7i3gddLWV"
   );
   const contract = new InterviewsContract(contractAddress);
   const openedContract = client.open(contract);
 
-  await openedContract.sendInterviewCreation(walletSender, 0n, 10000n);
+  await openedContract.sendInterviewCreation(walletSender, 0n, 100000n);
 
   let currentSeqno = seqno;
   while (currentSeqno == seqno) {

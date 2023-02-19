@@ -7,13 +7,18 @@ import InterviewsContract from "./contract";
   const client = new TonClient({ endpoint });
 
   const contractAddress = Address.parse(
-    "EQA-46kUKZ_TvOSo3jYzfyp75VcNZ9ViYsi37uidSeqR9XvU"
+    "EQDKACOvPmDCTF4Mgf7Tik8vAgjf6PUutCbMUAR7i3gddLWV"
   );
   const contract = new InterviewsContract(contractAddress);
   const openedContract = client.open(contract);
 
   const interview = await openedContract.getInterview(0n);
-  console.log(
-    `{ id: ${interview.id}, price: ${interview.price}, status: ${interview.status} }`
+  console.log(`{
+       id: ${interview.id},
+       price: ${interview.price},
+       creatorAddress: '${interview.creatorAddress}',
+       payerAddress: '${interview.payerAddress}',
+       status: ${interview.status}
+    }`
   );
 })();
