@@ -78,7 +78,15 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
   var end_at = in_msg_body~load_uint(32);
   var creator_address = cs~load_msg_addr();
 
-  save_interview(id, price, creator_address, creator_address, start_at, end_at, INTERVIEW_STATUS_CREATED);
+  save_interview(
+    id,
+    price,
+    creator_address,
+    creator_address,
+    start_at,
+    end_at,
+    INTERVIEW_STATUS_CREATED
+  );
 }
 
 () buy(int msg_value, slice cs, slice in_msg_body) impure inline {
@@ -91,7 +99,15 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
   throw_if(SELF_PURCHASING_NOT_ALLOWED, slices_equal?(creator_address, sender));
   throw_if(INSUFFICIENT_FUNDS, msg_value < price);
 
-  save_interview(interview_id, price, creator_address, sender, start_at, end_at, INTERVIEW_STATUS_PAID);
+  save_interview(
+    interview_id,
+    price,
+    creator_address,
+    sender,
+    start_at,
+    end_at,
+    INTERVIEW_STATUS_PAID
+  );
   
   if (msg_value > price) {
     var change = msg_value - price;
