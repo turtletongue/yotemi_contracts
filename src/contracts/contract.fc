@@ -6,9 +6,10 @@ const INTERVIEW_STATUS_CANCELED = 3;
 const OPERATION_CREATE = 1;
 const OPERATION_BUY = 2;
 
-const INTERVIEW_ALREADY_CREATED = 0;
-const INVALID_INTERVIEW_STATUS = 1;
-const INSUFFICIENT_FUNDS = 2;
+const INTERVIEW_ALREADY_CREATED = 701;
+const INVALID_INTERVIEW_STATUS = 702;
+const INSUFFICIENT_FUNDS = 703;
+const SELF_PURCHASING_NOT_ALLOWED = 704;
 
 (cell) load_data() inline {
   var data_slice = get_data().begin_parse();
@@ -27,6 +28,8 @@ const INSUFFICIENT_FUNDS = 2;
     .store_dict(interviews)
     .end_cell());
 }
+
+int slices_equal? (slice a, slice b) asm "SDEQ";
 
 (int, slice, slice, int) load_interview(int id) inline {
   var (interviews) = load_data();
@@ -59,7 +62,7 @@ const INSUFFICIENT_FUNDS = 2;
   var id = in_msg_body~load_uint(64);
 
   var (_, _, _, status) = load_interview(id);
-  throw_unless(INTERVIEW_ALREADY_CREATED, status == INTERVIEW_STATUS_GET_ERROR);
+  throw_if(INTERVIEW_ALREADY_CREATED, status != INTERVIEW_STATUS_GET_ERROR);
 
   var price = in_msg_body~load_uint(64);
   var creator_address = cs~load_msg_addr();
@@ -73,8 +76,9 @@ const INSUFFICIENT_FUNDS = 2;
 
   var (price, creator_address, _, status) = load_interview(interview_id);
 
-  throw_unless(INVALID_INTERVIEW_STATUS, status == INTERVIEW_STATUS_CREATED);
-  throw_unless(INSUFFICIENT_FUNDS, msg_value >= price);
+  throw_if(INVALID_INTERVIEW_STATUS, status != INTERVIEW_STATUS_CREATED);
+  throw_if(SELF_PURCHASING_NOT_ALLOWED, slices_equal?(creator_address, sender));
+  throw_if(INSUFFICIENT_FUNDS, msg_value < price);
 
   save_interview(interview_id, price, creator_address, sender, INTERVIEW_STATUS_PAID);
 }
