@@ -14,7 +14,9 @@ type Interview = {
   price: bigint;
   creatorAddress: string;
   payerAddress: string;
-  status: 'error' | 'created' | 'paid' | 'canceled'
+  startAt: Date;
+  endAt: Date;
+  status: "error" | "created" | "paid" | "canceled";
 };
 
 export default class InterviewsContract implements Contract {
@@ -57,12 +59,16 @@ export default class InterviewsContract implements Contract {
       price: stack.readBigNumber(),
       creatorAddress: stack.readAddress().toString(),
       payerAddress: stack.readAddress().toString(),
-      status: ({
-        0: 'error',
-        1: 'created',
-        2: 'paid',
-        3: 'canceled'
-      } as const)[stack.readNumber()],
+      startAt: new Date(stack.readNumber() * 1000),
+      endAt: new Date(stack.readNumber() * 1000),
+      status: (
+        {
+          0: "error",
+          1: "created",
+          2: "paid",
+          3: "canceled",
+        } as const
+      )[stack.readNumber()],
     };
   }
 
@@ -70,12 +76,16 @@ export default class InterviewsContract implements Contract {
     provider: ContractProvider,
     via: Sender,
     id: bigint,
-    price: bigint
+    price: bigint,
+    startAt: Date,
+    endAt: Date
   ): Promise<void> {
     const messageBody = beginCell()
       .storeUint(InterviewsContract.operations.create, 32)
       .storeUint(id, 64)
       .storeUint(price, 64)
+      .storeUint(Math.floor(startAt.getTime() / 1000), 32)
+      .storeUint(Math.floor(endAt.getTime() / 1000), 32)
       .endCell();
 
     await provider.internal(via, {
@@ -84,16 +94,19 @@ export default class InterviewsContract implements Contract {
     });
   }
 
-  async sendInterviewPurchase(provider: ContractProvider, via: Sender, id: bigint): Promise<void> {
+  async sendInterviewPurchase(
+    provider: ContractProvider,
+    via: Sender,
+    id: bigint
+  ): Promise<void> {
     const messageBody = beginCell()
       .storeUint(InterviewsContract.operations.buy, 32)
       .storeUint(id, 64)
       .endCell();
 
     await provider.internal(via, {
-      value: '0.005',
+      value: "0.01",
       body: messageBody,
-      bounce: false,
-    })
+    });
   }
 }

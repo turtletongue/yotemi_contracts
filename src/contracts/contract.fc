@@ -31,25 +31,34 @@ const SELF_PURCHASING_NOT_ALLOWED = 704;
 
 int slices_equal? (slice a, slice b) asm "SDEQ";
 
-(int, slice, slice, int) load_interview(int id) inline {
+(int, slice, slice, int, int, int) load_interview(int id) inline {
   var (interviews) = load_data();
 
   var (interview, found?) = interviews.udict_get?(64, id);
 
   ifnot (found?) {
-    return (0, my_address(), my_address(), INTERVIEW_STATUS_GET_ERROR);
+    return (0, my_address(), my_address(), 0, 0, INTERVIEW_STATUS_GET_ERROR);
   }
 
-  return (interview~load_uint(64), interview~load_msg_addr(), interview~load_msg_addr(), interview~load_uint(2));
+  return (
+    interview~load_uint(64),
+    interview~load_msg_addr(),
+    interview~load_msg_addr(),
+    interview~load_uint(32),
+    interview~load_uint(32),
+    interview~load_uint(2)
+  );
 }
 
-() save_interview(int id, int price, slice creator_address, slice payer_address, int status) impure inline {
+() save_interview(int id, int price, slice creator_address, slice payer_address, int start_at, int end_at, int status) impure inline {
   var (interviews) = load_data();
 
   interviews~udict_set(64, id, begin_cell()
     .store_uint(price, 64)
     .store_slice(creator_address)
     .store_slice(payer_address)
+    .store_uint(start_at, 32)
+    .store_uint(end_at, 32)
     .store_uint(status, 2)
     .end_cell()
     .begin_parse()
@@ -61,26 +70,41 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
 () add(int msg_value, slice cs, slice in_msg_body) impure inline {
   var id = in_msg_body~load_uint(64);
 
-  var (_, _, _, status) = load_interview(id);
+  var (_, _, _, _, _, status) = load_interview(id);
   throw_if(INTERVIEW_ALREADY_CREATED, status != INTERVIEW_STATUS_GET_ERROR);
 
   var price = in_msg_body~load_uint(64);
+  var start_at = in_msg_body~load_uint(32);
+  var end_at = in_msg_body~load_uint(32);
   var creator_address = cs~load_msg_addr();
 
-  save_interview(id, price, creator_address, creator_address, INTERVIEW_STATUS_CREATED);
+  save_interview(id, price, creator_address, creator_address, start_at, end_at, INTERVIEW_STATUS_CREATED);
 }
 
 () buy(int msg_value, slice cs, slice in_msg_body) impure inline {
   var interview_id = in_msg_body~load_uint(64);
   var sender = cs~load_msg_addr();
 
-  var (price, creator_address, _, status) = load_interview(interview_id);
+  var (price, creator_address, _, start_at, end_at, status) = load_interview(interview_id);
 
   throw_if(INVALID_INTERVIEW_STATUS, status != INTERVIEW_STATUS_CREATED);
   throw_if(SELF_PURCHASING_NOT_ALLOWED, slices_equal?(creator_address, sender));
   throw_if(INSUFFICIENT_FUNDS, msg_value < price);
 
-  save_interview(interview_id, price, creator_address, sender, INTERVIEW_STATUS_PAID);
+  save_interview(interview_id, price, creator_address, sender, start_at, end_at, INTERVIEW_STATUS_PAID);
+  
+  if (msg_value > price) {
+    var change = msg_value - price;
+    
+    var msg = begin_cell()
+      .store_uint(0x18, 6)
+      .store_slice(sender)
+      .store_coins(change)
+      .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+      .end_cell();
+    
+    send_raw_message(msg, 1);
+  }
 }
 
 () recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
@@ -89,7 +113,7 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
   }
 
   var cs = in_msg_full.begin_parse();
-  var flags = cs~load_uint(4);
+  cs~skip_bits(4);
 
   var op = in_msg_body~load_uint(32);
 
@@ -98,14 +122,10 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
   }
 
   if (op == OPERATION_BUY) {
-    if (flags & 1) { ;; ignore all bounced messages
-      return ();
-    }
-
     buy(msg_value, cs, in_msg_body);
   }
 }
 
-(int, slice, slice, int) interview(int id) method_id {
+(int, slice, slice, int, int, int) interview(int id) method_id {
   return load_interview(id);
 }
