@@ -1,15 +1,15 @@
-const INTERVIEW_STATUS_GET_ERROR = 0;
-const INTERVIEW_STATUS_CREATED = 1;
-const INTERVIEW_STATUS_PAID = 2;
-const INTERVIEW_STATUS_CANCELED = 3;
+const interview::get_error = 0;
+const interview::created = 1;
+const interview::paid = 2;
+const interview::canceled = 3;
 
-const OPERATION_CREATE = 1;
-const OPERATION_BUY = 2;
+const op::create = 1;
+const op::buy = 2;
 
-const INTERVIEW_ALREADY_CREATED = 701;
-const INVALID_INTERVIEW_STATUS = 702;
-const INSUFFICIENT_FUNDS = 703;
-const SELF_PURCHASING_NOT_ALLOWED = 704;
+const error::interview_already_created = 701;
+const error:invalid_interview_status = 702;
+const error::insufficient_funds = 703;
+const error:self_purchasing_not_allowed = 704;
 
 (cell) load_data() inline {
   var data_slice = get_data().begin_parse();
@@ -37,7 +37,7 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
   var (interview, found?) = interviews.udict_get?(64, id);
 
   ifnot (found?) {
-    return (0, my_address(), my_address(), 0, 0, INTERVIEW_STATUS_GET_ERROR);
+    return (0, my_address(), my_address(), 0, 0, interview::get_error);
   }
 
   return (
@@ -71,7 +71,7 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
   var id = in_msg_body~load_uint(64);
 
   var (_, _, _, _, _, status) = load_interview(id);
-  throw_if(INTERVIEW_ALREADY_CREATED, status != INTERVIEW_STATUS_GET_ERROR);
+  throw_if(error::interview_already_created, status != interview::get_error);
 
   var price = in_msg_body~load_uint(64);
   var start_at = in_msg_body~load_uint(32);
@@ -85,7 +85,7 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
     creator_address,
     start_at,
     end_at,
-    INTERVIEW_STATUS_CREATED
+    interview::created
   );
 }
 
@@ -95,9 +95,9 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
 
   var (price, creator_address, _, start_at, end_at, status) = load_interview(interview_id);
 
-  throw_if(INVALID_INTERVIEW_STATUS, status != INTERVIEW_STATUS_CREATED);
-  throw_if(SELF_PURCHASING_NOT_ALLOWED, slices_equal?(creator_address, sender));
-  throw_if(INSUFFICIENT_FUNDS, msg_value < price);
+  throw_if(error:invalid_interview_status, status != interview::created);
+  throw_if(error:self_purchasing_not_allowed, slices_equal?(creator_address, sender));
+  throw_if(error::insufficient_funds, msg_value < price);
 
   save_interview(
     interview_id,
@@ -106,7 +106,7 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
     sender,
     start_at,
     end_at,
-    INTERVIEW_STATUS_PAID
+    interview::paid
   );
   
   if (msg_value > price) {
@@ -133,11 +133,11 @@ int slices_equal? (slice a, slice b) asm "SDEQ";
 
   var op = in_msg_body~load_uint(32);
 
-  if (op == OPERATION_CREATE) {
+  if (op == op::create) {
     add(msg_value, cs, in_msg_body);
   }
 
-  if (op == OPERATION_BUY) {
+  if (op == op::buy) {
     buy(msg_value, cs, in_msg_body);
   }
 }
