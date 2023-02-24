@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "compile": "npx func-js ./src/contracts/stdlib.fc ./src/contracts/contract.fc --boc ./compiled/contract.cell",
+    "compile": "npx func-js ./src/contracts/stdlib.fc src/contracts/interview.fc --boc ./compiled/interview.cell",
     "deploy": "npx ts-node ./src/deploy.ts"
   },
   "keywords": [],

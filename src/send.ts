@@ -3,7 +3,7 @@ import { Address, TonClient, WalletContractV4 } from "ton";
 import { mnemonicToWalletKey } from "ton-crypto";
 import dotenv from "dotenv";
 
-import InterviewsContract from "./contract";
+import InterviewContract from "./contract";
 
 dotenv.config();
 
@@ -32,12 +32,12 @@ dotenv.config();
   const seqno = await walletContract.getSeqno();
 
   const contractAddress = Address.parse(
-    "EQAzk-tt7xbT8cAQC6qlvkSipmck8-n2n6ysart28LJTuzzg"
+    "EQAe1a4ftCT-0Fel5q8ml1bBRFprOoBHEHGhLqH_nnD2lRGX"
   );
-  const contract = new InterviewsContract(contractAddress);
+  const contract = new InterviewContract(contractAddress);
   const openedContract = client.open(contract);
 
-  await openedContract.sendInterviewPurchase(walletSender, 0n);
+  await openedContract.sendInterviewPurchase(walletSender);
 
   let currentSeqno = seqno;
   while (currentSeqno == seqno) {

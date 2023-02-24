@@ -6,31 +6,49 @@ import {
   contractAddress,
   ContractProvider,
   Sender,
-  TupleBuilder,
 } from "ton-core";
 
 type Interview = {
-  id: bigint;
   price: bigint;
   creatorAddress: string;
   payerAddress: string;
   startAt: Date;
   endAt: Date;
-  status: "error" | "created" | "paid" | "canceled";
+  status: "created" | "paid" | "canceled" | "finished";
 };
 
-export default class InterviewsContract implements Contract {
+export default class InterviewContract implements Contract {
   static readonly operations = {
-    create: 1,
-    buy: 2,
+    buy: 1,
+    cancel: 2,
   };
 
-  static createForDeploy(code: Cell): InterviewsContract {
-    const data = beginCell().storeDict().storeDict().endCell();
+  static readonly status = {
+    created: 1,
+    paid: 2,
+    canceled: 3,
+    finished: 4,
+  };
+
+  static createForDeploy(
+    code: Cell,
+    price: bigint,
+    creatorAddress: Address,
+    startAt: Date,
+    endAt: Date
+  ): InterviewContract {
+    const data = beginCell()
+      .storeUint(price, 64)
+      .storeAddress(creatorAddress)
+      .storeAddress(creatorAddress)
+      .storeUint(Math.floor(startAt.getTime() / 1000), 32)
+      .storeUint(Math.floor(endAt.getTime() / 1000), 32)
+      .storeUint(InterviewContract.status.created, 2)
+      .endCell();
     const workchain = 0;
     const address = contractAddress(workchain, { code, data });
 
-    return new InterviewsContract(address, { code, data });
+    return new InterviewContract(address, { code, data });
   }
 
   constructor(
@@ -45,17 +63,10 @@ export default class InterviewsContract implements Contract {
     });
   }
 
-  async getInterview(
-    provider: ContractProvider,
-    id: bigint
-  ): Promise<Interview> {
-    const builder = new TupleBuilder();
-    builder.writeNumber(id);
-
-    const { stack } = await provider.get("interview", builder.build());
+  async getInterview(provider: ContractProvider): Promise<Interview> {
+    const { stack } = await provider.get("info", []);
 
     return {
-      id,
       price: stack.readBigNumber(),
       creatorAddress: stack.readAddress().toString(),
       payerAddress: stack.readAddress().toString(),
@@ -63,29 +74,21 @@ export default class InterviewsContract implements Contract {
       endAt: new Date(stack.readNumber() * 1000),
       status: (
         {
-          0: "error",
-          1: "created",
-          2: "paid",
-          3: "canceled",
+          [InterviewContract.status.created]: "created",
+          [InterviewContract.status.paid]: "paid",
+          [InterviewContract.status.canceled]: "canceled",
+          [InterviewContract.status.finished]: "finished",
         } as const
       )[stack.readNumber()],
     };
   }
 
-  async sendInterviewCreation(
+  async sendInterviewPurchase(
     provider: ContractProvider,
-    via: Sender,
-    id: bigint,
-    price: bigint,
-    startAt: Date,
-    endAt: Date
+    via: Sender
   ): Promise<void> {
     const messageBody = beginCell()
-      .storeUint(InterviewsContract.operations.create, 32)
-      .storeUint(id, 64)
-      .storeUint(price, 64)
-      .storeUint(Math.floor(startAt.getTime() / 1000), 32)
-      .storeUint(Math.floor(endAt.getTime() / 1000), 32)
+      .storeUint(InterviewContract.operations.buy, 32)
       .endCell();
 
     await provider.internal(via, {
@@ -94,14 +97,12 @@ export default class InterviewsContract implements Contract {
     });
   }
 
-  async sendInterviewPurchase(
+  async sendInterviewCancellation(
     provider: ContractProvider,
-    via: Sender,
-    id: bigint
+    via: Sender
   ): Promise<void> {
     const messageBody = beginCell()
-      .storeUint(InterviewsContract.operations.buy, 32)
-      .storeUint(id, 64)
+      .storeUint(InterviewContract.operations.cancel, 32)
       .endCell();
 
     await provider.internal(via, {
