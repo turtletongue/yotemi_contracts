@@ -40,8 +40,8 @@ async function deploy() {
     contractCode,
     10000n,
     walletContract.address,
-    new Date(Date.now() + 1000 * 60 * 60),
-    new Date(Date.now() + 1000 * 60 * 60 * 2)
+    new Date(Date.now() - 1000 * 60 * 60 * 2),
+    new Date(Date.now() - 1000 * 60 * 60)
   );
 
   // exit if contract is already deployed

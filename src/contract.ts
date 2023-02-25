@@ -21,6 +21,7 @@ export default class InterviewContract implements Contract {
   static readonly operations = {
     buy: 1,
     cancel: 2,
+    finish: 3,
   };
 
   static readonly status = {
@@ -43,7 +44,7 @@ export default class InterviewContract implements Contract {
       .storeAddress(creatorAddress)
       .storeUint(Math.floor(startAt.getTime() / 1000), 32)
       .storeUint(Math.floor(endAt.getTime() / 1000), 32)
-      .storeUint(InterviewContract.status.created, 2)
+      .storeUint(InterviewContract.status.created, 3)
       .endCell();
     const workchain = 0;
     const address = contractAddress(workchain, { code, data });
@@ -103,6 +104,20 @@ export default class InterviewContract implements Contract {
   ): Promise<void> {
     const messageBody = beginCell()
       .storeUint(InterviewContract.operations.cancel, 32)
+      .endCell();
+
+    await provider.internal(via, {
+      value: "0.01",
+      body: messageBody,
+    });
+  }
+
+  async sendInterviewFinish(
+    provider: ContractProvider,
+    via: Sender
+  ): Promise<void> {
+    const messageBody = beginCell()
+      .storeUint(InterviewContract.operations.finish, 32)
       .endCell();
 
     await provider.internal(via, {

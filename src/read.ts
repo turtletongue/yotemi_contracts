@@ -8,7 +8,7 @@ import InterviewContract from "./contract";
   const client = new TonClient({ endpoint });
 
   const contractAddress = Address.parse(
-    "EQAe1a4ftCT-0Fel5q8ml1bBRFprOoBHEHGhLqH_nnD2lRGX"
+    "EQD7m2GGI3n25X9AN2TQgWo_8hKsvApPn5ANWPvOGM0NilDX"
   );
   const contract = new InterviewContract(contractAddress);
 

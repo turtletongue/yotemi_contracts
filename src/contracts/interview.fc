@@ -5,14 +5,18 @@ const status::finished = 4;
 
 const op::buy = 1;
 const op::cancel = 2;
+const op::finish = 3;
 
 const error::invalid_interview_status = 701;
 const error::insufficient_funds = 702;
 const error::self_purchasing_not_allowed = 703;
 const error::cancel_not_allowed = 704;
 const error::cancel_time_has_passed = 705;
+const error::finish_too_soon = 706;
+const error::already_ended = 707;
 
 const SECONDS_IN_FIVE_MINUTES = 300;
+const COMMISSION_RECEIVER = "EQCRDM9h4k3UJdOePPuyX40mCgA4vxge5Dc5vjBR8djbEKC5"a;
 
 (int, slice, slice, int, int, int) load_data() inline {
   var data_slice = get_data().begin_parse();
@@ -23,7 +27,7 @@ const SECONDS_IN_FIVE_MINUTES = 300;
     data_slice~load_msg_addr(),
     data_slice~load_uint(32),
     data_slice~load_uint(32),
-    data_slice~load_uint(2)
+    data_slice~load_uint(3)
   );
 }
 
@@ -34,8 +38,23 @@ const SECONDS_IN_FIVE_MINUTES = 300;
     .store_slice(payer_address)
     .store_uint(start_at, 32)
     .store_uint(end_at, 32)
-    .store_uint(status, 2)
+    .store_uint(status, 3)
     .end_cell());
+}
+
+() send_coins(slice receiver, int coins) impure inline {
+  var msg = begin_cell()
+    .store_uint(0x18, 6)
+    .store_slice(receiver)
+    .store_coins(coins)
+    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+    .end_cell();
+
+  send_raw_message(msg, 1);
+}
+
+(int) get_commission(int price) inline {
+  return (price * 4) / 100;
 }
 
 () buy(int msg_value, slice cs) impure inline {
@@ -46,6 +65,7 @@ const SECONDS_IN_FIVE_MINUTES = 300;
   throw_if(error::invalid_interview_status, status != status::created);
   throw_if(error::self_purchasing_not_allowed, equal_slice_bits(creator_address, sender));
   throw_if(error::insufficient_funds, msg_value < price);
+  throw_if(error::already_ended, end_at <= now());
 
   save_data(
     price,
@@ -59,14 +79,7 @@ const SECONDS_IN_FIVE_MINUTES = 300;
   if (msg_value > price) {
     var change = msg_value - price;
     
-    var msg = begin_cell()
-      .store_uint(0x18, 6)
-      .store_slice(sender)
-      .store_coins(change)
-      .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-      .end_cell();
-    
-    send_raw_message(msg, 1);
+    send_coins(sender, change);
   }
 }
 
@@ -88,14 +101,28 @@ const SECONDS_IN_FIVE_MINUTES = 300;
     status::canceled
   );
 
-  var msg = begin_cell()
-    .store_uint(0x18, 6)
-    .store_slice(payer_address)
-    .store_coins(price)
-    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-    .end_cell();
+  send_coins(payer_address, price);
+}
 
-  send_raw_message(msg, 1);
+() finish() impure inline {
+  var (price, creator_address, payer_address, start_at, end_at, status) = load_data();
+
+  throw_if(error::invalid_interview_status, status != status::paid);
+  throw_if(error::finish_too_soon, end_at > now());
+
+  save_data(
+    price,
+    creator_address,
+    payer_address,
+    start_at,
+    end_at,
+    status::finished
+  );
+
+  var (commission) = get_commission(price);
+
+  send_coins(COMMISSION_RECEIVER, commission);
+  send_coins(creator_address, price - commission);
 }
 
 () recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
@@ -114,6 +141,10 @@ const SECONDS_IN_FIVE_MINUTES = 300;
 
   if (op == op::cancel) {
     cancel(cs);
+  }
+
+  if (op == op::finish) {
+    finish();
   }
 }
 
