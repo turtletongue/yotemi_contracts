@@ -89,7 +89,7 @@ const COMMISSION_RECEIVER = "EQCRDM9h4k3UJdOePPuyX40mCgA4vxge5Dc5vjBR8djbEKC5"a;
   var (price, creator_address, payer_address, start_at, end_at, status) = load_data();
 
   throw_unless(error::cancel_not_allowed, equal_slice_bits(creator_address, sender) | equal_slice_bits(payer_address, sender));
-  throw_if(error::invalid_interview_status, status != status::paid);
+  throw_if(error::invalid_interview_status, status == status::finished);
   throw_if(error::cancel_time_has_passed, now() - start_at > SECONDS_IN_FIVE_MINUTES);
 
   save_data(
@@ -101,7 +101,9 @@ const COMMISSION_RECEIVER = "EQCRDM9h4k3UJdOePPuyX40mCgA4vxge5Dc5vjBR8djbEKC5"a;
     status::canceled
   );
 
-  send_coins(payer_address, price);
+  if (status == status::paid) {
+    send_coins(payer_address, price);
+  }
 }
 
 () finish() impure inline {
